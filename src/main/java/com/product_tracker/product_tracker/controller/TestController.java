@@ -11,6 +11,10 @@ public class TestController {
     public String home() {
         return "Product Tracker Bot is running successfully!";
     }
+    @GetMapping("/api/button-text")
+    public String getButtonText() {
+        return "Tracking Started";   // or any text you want
+    }
 
 
 }

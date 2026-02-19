@@ -4,13 +4,14 @@ import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.ArrayList;
 import java.util.List;
 @Configuration
 @ConfigurationProperties(prefix = "product.tracker")
 @Getter
 @Setter
 public class ProductTrackerProperties {
-    private List<ProductConfig> products;
+    private List<ProductConfig> products = new ArrayList<>();
 
     @Getter
     @Setter
