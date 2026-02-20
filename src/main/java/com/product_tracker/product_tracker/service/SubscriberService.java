@@ -16,16 +16,14 @@ public class SubscriberService {
         this.subscriberRepository = subscriberRepository;
     }
 
-    // Subscribe a user
     public boolean subscribe(String chatId) {
         if (subscriberRepository.findByChatId(chatId).isPresent()) {
-            return false; // already subscribed
+            return false;
         }
         subscriberRepository.save(new SubscriberEntity(null, chatId));
         return true;
     }
 
-    // Unsubscribe a user
     public boolean unsubscribe(String chatId) {
         Optional<SubscriberEntity> sub = subscriberRepository.findByChatId(chatId);
         if (sub.isPresent()) {
@@ -35,7 +33,6 @@ public class SubscriberService {
         return false;
     }
 
-    // ✅ Add this method
     public List<SubscriberEntity> getAllSubscribers() {
         return subscriberRepository.findAll();
     }

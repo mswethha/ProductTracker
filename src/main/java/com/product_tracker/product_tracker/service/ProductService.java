@@ -1,10 +1,11 @@
 package com.product_tracker.product_tracker.service;
 
+import com.product_tracker.product_tracker.domain.AvailabilityStatus;
 import com.product_tracker.product_tracker.entity.ProductEntity;
 import com.product_tracker.product_tracker.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import com.product_tracker.product_tracker.domain.AvailabilityStatus;
+
 import java.time.LocalDateTime;
 
 @Service
@@ -21,18 +22,18 @@ public class ProductService {
                                 name,
                                 url,
                                 AvailabilityStatus.UNKNOWN,
-                                "UNKNOWN",
                                 LocalDateTime.now()
                         )
                 ));
     }
 
-    public boolean isStatusChanged(ProductEntity product, String newButtonText) {
-        return !newButtonText.equalsIgnoreCase(product.getButtonText());
+    public boolean shouldNotify(ProductEntity product, boolean available) {
+        // Notify only when product becomes available
+        return product.getAvailabilityStatus() != AvailabilityStatus.IN_STOCK && available;
     }
 
-    public void updateStatus(ProductEntity product, String buttonText) {
-        product.updateFromButtonText(buttonText);
+    public void updateStatus(ProductEntity product, boolean available) {
+        product.updateAvailability(available);
         productRepository.save(product);
     }
 }

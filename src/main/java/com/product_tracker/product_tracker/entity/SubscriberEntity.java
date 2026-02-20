@@ -1,9 +1,10 @@
 package com.product_tracker.product_tracker.entity;
+
 import jakarta.persistence.*;
 import lombok.*;
+
 @Entity
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "subscribers")

@@ -1,10 +1,12 @@
 package com.product_tracker.product_tracker.bot;
 
+import com.product_tracker.product_tracker.config.ProductTrackerProperties;
+import com.product_tracker.product_tracker.domain.AvailabilityStatus;
+import com.product_tracker.product_tracker.entity.ProductEntity;
 import com.product_tracker.product_tracker.entity.SubscriberEntity;
-import com.product_tracker.product_tracker.service.ProductCheckerService;
+import com.product_tracker.product_tracker.service.ProductService;
 import com.product_tracker.product_tracker.service.SubscriberService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
@@ -17,6 +19,8 @@ import java.util.concurrent.atomic.AtomicReference;
 @Slf4j
 @Service
 public class TelegramBotService extends TelegramLongPollingBot {
+    private final ProductService productService;
+    private final ProductTrackerProperties properties;
 
     @Value("${telegram.bot.token}")
     private String botToken;
@@ -25,21 +29,24 @@ public class TelegramBotService extends TelegramLongPollingBot {
     private String botUserName;
 
     private final SubscriberService subscriberService;
-    private final AtomicReference<String> lastButtonText = new AtomicReference<>("Button text not yet fetched");
+    private final AtomicReference<String> lastStatus =
+            new AtomicReference<>("Not checked yet");
 
-    public TelegramBotService(SubscriberService subscriberService) {
+    public TelegramBotService(
+            SubscriberService subscriberService,
+            ProductService productService,
+            ProductTrackerProperties properties
+    ) {
         this.subscriberService = subscriberService;
+        this.productService = productService;
+        this.properties = properties;
     }
 
     @Override
-    public String getBotToken() {
-        return botToken;
-    }
+    public String getBotToken() { return botToken; }
 
     @Override
-    public String getBotUsername() {
-        return botUserName;
-    }
+    public String getBotUsername() { return botUserName; }
 
     @Override
     public void onUpdateReceived(Update update) {
@@ -48,74 +55,61 @@ public class TelegramBotService extends TelegramLongPollingBot {
             String text = update.getMessage().getText().trim().toLowerCase();
 
             switch (text) {
-                case "/start", "start" -> handleStartCommand(chatId);
-                case "/stop", "stop" -> handleStopCommand(chatId);
-                case "/test", "test" -> handleTestCommand(chatId);
-                default -> handleOtherMessages(chatId);
+                case "/start", "start" -> subscribe(chatId);
+                case "/stop", "stop" -> unsubscribe(chatId);
+                case "/test", "test" -> sendMessage(chatId,
+                        "App running.\nCurrent status: " + lastStatus.get());
+                default -> sendMessage(chatId, "Use /start to subscribe and /stop to unsubscribe");
             }
         }
     }
 
-    private void handleStartCommand(String chatId) {
-        boolean subscribed = subscriberService.subscribe(chatId);
-        if (subscribed) {
-            sendMessage(chatId, """
-                    You’ve successfully subscribed to product alerts!
+    public void updateLastButtonText(String status) {
+        lastStatus.set(status);
+    }
 
-                    I’ll notify you whenever the product status changes.
-                    Use /stop anytime to unsubscribe.
-                    """);
-            log.info("New subscriber added: {}", chatId);
+    private void subscribe(String chatId) {
+        if (subscriberService.subscribe(chatId)) {
+            sendMessage(chatId, "Subscribed to product alerts.\nFetching current status...");
+
+            // send current status for all products
+            for (var config : properties.getProducts()) {
+                ProductEntity product =
+                        productService.getOrCreateProduct(config.getName(), config.getUrl());
+
+                String status = product.getAvailabilityStatus() == AvailabilityStatus.IN_STOCK
+                        ? "✅ Available"
+                        : "❌ Out of Stock";
+
+                sendMessage(chatId,
+                        config.getName() + "\nStatus: " + status);
+            }
+
         } else {
-            sendMessage(chatId, "You’re already subscribed to product alerts!");
-            log.info("User {} tried to subscribe again.", chatId);
+            sendMessage(chatId, "Already subscribed.");
         }
     }
 
-    private void handleStopCommand(String chatId) {
-        boolean unsubscribed = subscriberService.unsubscribe(chatId);
-        if (unsubscribed) {
-            sendMessage(chatId, "You’ve been unsubscribed from product alerts. You won’t receive updates anymore.");
-            log.info("Subscriber removed: {}", chatId);
+    private void unsubscribe(String chatId) {
+        if (subscriberService.unsubscribe(chatId)) {
+            sendMessage(chatId, "Unsubscribed.");
         } else {
-            sendMessage(chatId, "You’re not subscribed yet. Use /start to subscribe.");
-            log.info("Unsubscribe request from non-subscriber: {}", chatId);
-        }
-    }
-    private void handleTestCommand(String chatId) {
-        String buttonText = lastButtonText.get(); // You’ll define this
-        sendMessage(chatId, " App is running!\nCurrent button text: " + buttonText);
-        return;
-    }
-
-    private void handleOtherMessages(String chatId) {
-        sendMessage(chatId, """
-                Hi there! I’m your Product Tracker Bot.
-
-                I’ll help you stay updated when your desired product becomes available.
-                Use /start to subscribe to alerts, or /stop to unsubscribe anytime.
-                """);
-        log.info("Sent welcome message to user: {}", chatId);
-    }
-
-    public void sendMessage(String chatId, String message) {
-        SendMessage msg = new SendMessage(chatId, message);
-        try {
-            execute(msg);
-        } catch (Exception e) {
-            log.error("Failed to send message to {}: {}", chatId, e.getMessage());
+            sendMessage(chatId, "Not subscribed.");
         }
     }
 
     public void broadcastMessage(String message) {
-        List<SubscriberEntity> subscribers = subscriberService.getAllSubscribers();
-        for (SubscriberEntity sub : subscribers) {
+        List<SubscriberEntity> subs = subscriberService.getAllSubscribers();
+        for (SubscriberEntity sub : subs) {
             sendMessage(sub.getChatId(), message);
         }
-        log.info("Broadcasted message to {} subscribers.", subscribers.size());
-    }
-    public void updateLastButtonText(String buttonText) {
-        lastButtonText.set(buttonText);
     }
 
+    private void sendMessage(String chatId, String text) {
+        try {
+            execute(new SendMessage(chatId, text));
+        } catch (Exception e) {
+            log.error("Telegram error: {}", e.getMessage());
+        }
+    }
 }
