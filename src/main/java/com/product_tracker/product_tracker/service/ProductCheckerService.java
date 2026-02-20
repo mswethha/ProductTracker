@@ -1,5 +1,7 @@
 package com.product_tracker.product_tracker.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.product_tracker.product_tracker.bot.TelegramBotService;
 import com.product_tracker.product_tracker.config.ProductTrackerProperties;
 import com.product_tracker.product_tracker.entity.ProductEntity;
@@ -32,15 +34,18 @@ public class ProductCheckerService {
     private final ProductRepository productRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final ProductTrackerProperties properties;
+    private final TelegramBotService telegramBotService;
 
     public ProductCheckerService(
             ProductRepository productRepository,
             ApplicationEventPublisher eventPublisher,
-            ProductTrackerProperties properties
+            ProductTrackerProperties properties,
+            TelegramBotService telegramBotService
     ) {
         this.productRepository = productRepository;
         this.eventPublisher = eventPublisher;
         this.properties = properties;
+        this.telegramBotService = telegramBotService;
     }
 
     @Scheduled(fixedRate = 60000)
@@ -53,40 +58,43 @@ public class ProductCheckerService {
 
     private void checkSingleProduct(ProductTrackerProperties.ProductConfig config) {
         try {
-            log.info("🔁 Checking product page... {}", config.getName());
+            log.info("🔁 Checking product via Shopify API..... {}", config.getName());
+            String apiUrl = config.getUrl() + ".js";
 
-            Document doc = Jsoup.connect(config.getUrl()).get();
-            Element button = doc.selectFirst(".cart-submit-button");
+            Document doc = Jsoup.connect(apiUrl)
+                    .ignoreContentType(true)
+                    .userAgent("Mozilla/5.0")
+                    .get();
+            String json = doc.body().text();
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(json);
 
-            if (button == null) {
-                log.warn("Button not found for {}", config.getName());
-                return;
+            boolean available = root.path("available").asBoolean();
+            String publishedAt = root.path("published_at").asText();
+
+            String buttonText;
+
+            if (publishedAt == null || publishedAt.isEmpty()) {
+                buttonText = "Coming Soon";
+            } else if (available) {
+                buttonText = "Add to Cart";
+            } else {
+                buttonText = "Sold Out";
             }
 
-            String buttonText = button.text().trim();
+            log.info("Availability: {}", available);
 
-            ProductEntity product = productRepository
-                    .findByUrl(config.getUrl())
-                    .orElseGet(() -> {
-                        ProductEntity p = new ProductEntity();
-                        p.setName(config.getName());
-                        p.setUrl(config.getUrl());
-                        return p;
-                    });
+            String statusMessage = "Status: " + buttonText +
+                    "\nAvailable: " + (available ? "✅ Yes" : "❌ No");
 
-            String previousText = product.getButtonText();
-            boolean isNew = product.getId() == null;
+            telegramBotService.updateLastButtonText(statusMessage);
 
-            if (previousText == null || !previousText.equalsIgnoreCase(buttonText)) {
-
-                product.updateFromButtonText(buttonText);
-                productRepository.save(product);
-
-                if (!isNew) {
-                    eventPublisher.publishEvent(
-                            new ProductStatusChangedEvent(product)
-                    );
-                }
+            // ===== OPTIONAL: trigger notification if available =====
+            if (available) {
+                telegramBotService.broadcastMessage(
+                        "🚨 Product Available!\n" + config.getName() +
+                                "\nBuy now: " + config.getUrl()
+                );
             }
 
         } catch (Exception e) {
@@ -94,3 +102,5 @@ public class ProductCheckerService {
         }
     }
 }
+
+
