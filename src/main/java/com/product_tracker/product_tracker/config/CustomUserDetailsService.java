@@ -1,0 +1,34 @@
+package com.product_tracker.product_tracker.config;
+
+import com.product_tracker.product_tracker.entity.UserEntity;
+import com.product_tracker.product_tracker.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class CustomUserDetailsService implements UserDetailsService {
+
+    private final UserRepository userRepository;
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        UserEntity entity = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+
+        String role = "ROLE_" + entity.getRole().name();
+        return User.builder()
+                .username(entity.getUsername())
+                .password(entity.getPassword())
+                .authorities(List.of(new SimpleGrantedAuthority(role)))
+                .disabled(!entity.isEnabled())
+                .build();
+    }
+}
