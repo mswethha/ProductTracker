@@ -54,19 +54,27 @@ public class ProductCheckerService {
             boolean available = root.path("available").asBoolean();
 
             ProductEntity product =
-                    productService.getOrCreateProduct(config.getName(), config.getUrl());
+                    productService.getOrCreateProduct(config.getName(), config.getUrl().trim());
 
-            // 🔔 notify ONLY when becomes available
-            if (productService.shouldNotify(product, available)) {
-                telegramBotService.broadcastMessage(
-                        "🚨 PRODUCT AVAILABLE!\n" +
-                                config.getName() +
-                                "\nBuy now: " + config.getUrl()
-                );
-            }
+            boolean statusChanged = productService.didStatusChange(product, available);
+            String productName = config.getName();
+            String productUrl = config.getUrl().trim();
 
             // always update DB
             productService.updateStatus(product, available);
+
+            // 🔔 notify subscribers on any status change
+            if (statusChanged) {
+                if (available) {
+                    telegramBotService.broadcastMessage(
+                            "🚨 PRODUCT AVAILABLE!\n" + productName + "\nBuy now: " + productUrl
+                    );
+                } else {
+                    telegramBotService.broadcastMessage(
+                            "📦 Product no longer in stock: " + productName
+                    );
+                }
+            }
 
             telegramBotService.updateLastButtonText(
                     available ? "Available" : "Out of Stock"

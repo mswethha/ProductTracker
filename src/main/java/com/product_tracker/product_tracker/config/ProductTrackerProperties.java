@@ -12,6 +12,8 @@ import java.util.List;
 @Setter
 public class ProductTrackerProperties {
     private List<ProductConfig> products = new ArrayList<>();
+    /** Optional secret for one-time admin creation via POST /api/auth/register-admin */
+    private String adminSecret;
 
     @Getter
     @Setter
