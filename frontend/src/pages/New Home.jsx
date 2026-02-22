@@ -4,7 +4,7 @@ export default function Home({ user }) {
   return (
     <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
       <div className="card" style={{ maxWidth: '500px', margin: '0 auto' }}>
-        <h2>🛍️ Product Tracker</h2>
+        <h2> Product Tracker</h2>
         <p style={{ color: '#a1a1aa', marginBottom: '1.5rem' }}>
           Get instant Telegram alerts when your favourite products come back in stock.
         </p>

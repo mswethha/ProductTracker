@@ -22,7 +22,7 @@ public class UserService {
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(password));
         user.setRole(UserRole.USER);
-
+        user.setEnabled(true);
         return userRepository.save(user);
     }
 
@@ -32,25 +32,46 @@ public class UserService {
         admin.setEmail(email);
         admin.setPassword(passwordEncoder.encode(password));
         admin.setRole(UserRole.ADMIN);
-
+        admin.setEnabled(true);
         return userRepository.save(admin);
     }
 
-    public java.util.Optional<UserEntity> findByUsername(String username) {
+    public Optional<UserEntity> findByUsername(String username) {
         return userRepository.findByUsername(username);
     }
 
-    public java.util.Optional<UserEntity> findByEmail(String email) {
+    public Optional<UserEntity> findByEmail(String email) {
         return userRepository.findByEmail(email);
-    }
-    public UserEntity linkTelegram(String username, String chatId) {
-        UserEntity user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        user.setTelegramChatId(chatId);
-        return userRepository.save(user);
     }
 
     public Optional<UserEntity> findByTelegramChatId(String chatId) {
         return userRepository.findByTelegramChatId(chatId);
+    }
+
+    /** Generates a 6-digit code the user sends to the Telegram bot to link their account */
+    public UserEntity generateLinkCode(String username) {
+        UserEntity user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found: " + username));
+        String code = String.valueOf((int)(Math.random() * 900000) + 100000);
+        user.setTelegramLinkCode(code);
+        return userRepository.save(user);
+    }
+
+    /** Links a Telegram chatId directly to a user (kept for backwards compatibility) */
+    public UserEntity linkTelegram(String username, String chatId) {
+        UserEntity user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found: " + username));
+        user.setTelegramChatId(chatId);
+        user.setTelegramLinkCode(null); // clear any existing code
+        return userRepository.save(user);
+    }
+
+    /** Unlinks Telegram from a user */
+    public void unlinkTelegram(String username) {
+        UserEntity user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found: " + username));
+        user.setTelegramChatId(null);
+        user.setTelegramLinkCode(null);
+        userRepository.save(user);
     }
 }

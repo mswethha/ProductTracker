@@ -3,8 +3,8 @@ package com.product_tracker.product_tracker.controller;
 import com.product_tracker.product_tracker.config.ProductTrackerProperties;
 import com.product_tracker.product_tracker.domain.AvailabilityStatus;
 import com.product_tracker.product_tracker.entity.ProductEntity;
+import com.product_tracker.product_tracker.repository.UserRepository;
 import com.product_tracker.product_tracker.service.ProductService;
-import com.product_tracker.product_tracker.service.SubscriberService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 public class AdminController {
 
     private final ProductService productService;
-    private final SubscriberService subscriberService;
+    private final UserRepository userRepository; // replaces SubscriberService
     private final ProductTrackerProperties properties;
 
     @GetMapping("/products")
@@ -31,7 +31,8 @@ public class AdminController {
     public ResponseEntity<List<AdminProductDto>> getProducts() {
         List<AdminProductDto> dtos = new ArrayList<>();
         for (var config : properties.getProducts()) {
-            ProductEntity p = productService.getOrCreateProduct(config.getName(), config.getUrl().trim());
+            ProductEntity p = productService.getOrCreateProduct(
+                    config.getName(), config.getUrl().trim());
             dtos.add(toDto(p));
         }
         return ResponseEntity.ok(dtos);
@@ -40,11 +41,15 @@ public class AdminController {
     @GetMapping("/subscribers")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<SubscriberDto>> getSubscribers() {
-        List<SubscriberDto> dtos = subscriberService.getAllSubscribers().stream()
-                .map(s -> {
+        // Now returns users who have linked their Telegram
+        List<SubscriberDto> dtos = userRepository.findAll().stream()
+                .filter(u -> u.getTelegramChatId() != null
+                        && !u.getTelegramChatId().isBlank())
+                .map(u -> {
                     SubscriberDto d = new SubscriberDto();
-                    d.setId(s.getId());
-                    d.setChatId(s.getChatId());
+                    d.setId(u.getId());
+                    d.setChatId(u.getTelegramChatId());
+                    d.setUsername(u.getUsername()); // bonus: show username too
                     return d;
                 })
                 .collect(Collectors.toList());
@@ -56,10 +61,12 @@ public class AdminController {
         d.setId(p.getId());
         d.setName(p.getName());
         d.setUrl(p.getUrl());
-        d.setStatus(p.getAvailabilityStatus() == null ? AvailabilityStatus.UNKNOWN : p.getAvailabilityStatus());
+        d.setStatus(p.getAvailabilityStatus() == null
+                ? AvailabilityStatus.UNKNOWN : p.getAvailabilityStatus());
         d.setLastChecked(p.getLastChecked());
         d.setLastInStockAt(p.getLastInStockAt());
-        d.setStatusMessage(p.getAvailabilityStatus() == AvailabilityStatus.IN_STOCK ? "Available" : "Out of stock");
+        d.setStatusMessage(p.getAvailabilityStatus() == AvailabilityStatus.IN_STOCK
+                ? "Available" : "Out of stock");
         return d;
     }
 
@@ -78,5 +85,6 @@ public class AdminController {
     public static class SubscriberDto {
         private Long id;
         private String chatId;
+        private String username;
     }
 }

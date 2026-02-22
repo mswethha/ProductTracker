@@ -25,7 +25,6 @@ public class AuthController {
     private final UserService userService;
     private final ProductTrackerProperties properties;
 
-    /** Current user info (for frontend: who is logged in, is admin?). */
     @GetMapping("/me")
     public ResponseEntity<?> me(@AuthenticationPrincipal UserDetails user) {
         if (user == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -36,7 +35,6 @@ public class AuthController {
         return ResponseEntity.ok(r);
     }
 
-    /** Form data: POST /api/auth/register with Content-Type: application/x-www-form-urlencoded */
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(
             @RequestParam String username,
@@ -45,28 +43,31 @@ public class AuthController {
         return doRegister(username, email, password);
     }
 
-    /** JSON body: POST /api/auth/register/json with Content-Type: application/json */
     @PostMapping(value = "/register/json", consumes = "application/json")
     public ResponseEntity<?> registerUserJson(@Valid @RequestBody RegisterRequest request) {
         return doRegister(request.getUsername(), request.getEmail(), request.getPassword());
     }
 
-    /** Create first admin: POST /api/auth/register-admin with JSON body including "secret" (must match product.tracker.admin-secret). */
     @PostMapping(value = "/register-admin", consumes = "application/json")
     public ResponseEntity<?> registerAdmin(@RequestBody RegisterAdminRequest request) {
         if (properties.getAdminSecret() == null || properties.getAdminSecret().isBlank()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ErrorResponse("Admin registration not configured"));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ErrorResponse("Admin registration not configured"));
         }
         if (!properties.getAdminSecret().equals(request.getSecret())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(new ErrorResponse("Invalid secret"));
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new ErrorResponse("Invalid secret"));
         }
         if (userService.findByUsername(request.getUsername()).isPresent()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse("Username already exists"));
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ErrorResponse("Username already exists"));
         }
         if (userService.findByEmail(request.getEmail()).isPresent()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(new ErrorResponse("Email already exists"));
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ErrorResponse("Email already exists"));
         }
-        UserEntity admin = userService.createAdmin(request.getUsername(), request.getEmail(), request.getPassword());
+        UserEntity admin = userService.createAdmin(
+                request.getUsername(), request.getEmail(), request.getPassword());
         RegisterResponse r = new RegisterResponse();
         r.setId(admin.getId());
         r.setUsername(admin.getUsername());
@@ -74,7 +75,20 @@ public class AuthController {
         r.setMessage("Admin created. Use this account to log in to the Admin panel.");
         return ResponseEntity.status(HttpStatus.CREATED).body(r);
     }
-    /** POST /api/auth/link-telegram  body: { "chatId": "123456" } */
+
+    // GET /api/auth/link-code — generates and returns a 6-digit code
+    @GetMapping("/link-code")
+    public ResponseEntity<?> getLinkCode(@AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        UserEntity user = userService.generateLinkCode(userDetails.getUsername());
+        return ResponseEntity.ok(Map.of(
+                "code", user.getTelegramLinkCode(),
+                "botUsername", "@alertbot"
+        ));
+    }
+
+    /** POST /api/auth/link-telegram — kept for backwards compatibility */
     @PostMapping("/link-telegram")
     public ResponseEntity<?> linkTelegram(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -92,18 +106,21 @@ public class AuthController {
                     .body(new ErrorResponse("Failed to link: " + e.getMessage()));
         }
     }
+
     private ResponseEntity<?> doRegister(String username, String email, String password) {
         try {
             if (username == null || username.isBlank() || username.length() < 3) {
-                return ResponseEntity.badRequest().body(new ErrorResponse("Username must be at least 3 characters"));
+                return ResponseEntity.badRequest()
+                        .body(new ErrorResponse("Username must be at least 3 characters"));
             }
             if (email == null || email.isBlank()) {
-                return ResponseEntity.badRequest().body(new ErrorResponse("Email is required"));
+                return ResponseEntity.badRequest()
+                        .body(new ErrorResponse("Email is required"));
             }
             if (password == null || password.length() < 6) {
-                return ResponseEntity.badRequest().body(new ErrorResponse("Password must be at least 6 characters"));
+                return ResponseEntity.badRequest()
+                        .body(new ErrorResponse("Password must be at least 6 characters"));
             }
-
             if (userService.findByUsername(username).isPresent()) {
                 return ResponseEntity.status(HttpStatus.CONFLICT)
                         .body(new ErrorResponse("Username already exists"));
@@ -114,14 +131,13 @@ public class AuthController {
             }
 
             UserEntity user = userService.registerUser(username, email, password);
-
             RegisterResponse response = new RegisterResponse();
             response.setId(user.getId());
             response.setUsername(user.getUsername());
             response.setEmail(user.getEmail());
             response.setMessage("User registered successfully");
-
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ErrorResponse("Failed to register user: " + e.getMessage()));
@@ -168,9 +184,6 @@ public class AuthController {
     @Data
     static class ErrorResponse {
         private String error;
-
-        public ErrorResponse(String error) {
-            this.error = error;
-        }
+        public ErrorResponse(String error) { this.error = error; }
     }
 }

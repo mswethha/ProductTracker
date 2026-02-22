@@ -11,19 +11,19 @@ export default function Register({ onSuccess }) {
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      await register(username, email, password);
-      await onSuccess(username, password);
-      navigate('/');
-    } catch (err) {
-      setError(err.message || 'Registration failed');
-    } finally {
-      setLoading(false);
-    }
-  };
+      e.preventDefault();
+      setError('');
+      setLoading(true);
+      try {
+        await register(username, email, password);
+        await onSuccess(username, password);
+        navigate('/status');  // ← redirect here after register
+      } catch (err) {
+        setError(err.message || 'Registration failed');
+      } finally {
+        setLoading(false);
+      }
+    };
 
   return (
     <div className="card">

@@ -79,24 +79,26 @@ export default function Admin() {
           Users who subscribed via the Telegram bot and receive status change alerts.
         </p>
         <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Chat ID</th>
-            </tr>
-          </thead>
-          <tbody>
-            {subscribers.length === 0 ? (
-              <tr><td colSpan={2}>No subscribers yet</td></tr>
-            ) : (
-              subscribers.map((s) => (
-                <tr key={s.id}>
-                  <td>{s.id}</td>
-                  <td>{s.chatId}</td>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Chat ID</th>
                 </tr>
-              ))
-            )}
-          </tbody>
+            </thead>
+            <tbody>
+                {subscribers.length === 0 ? (
+                    <tr><td colSpan={3}>No linked Telegram users yet</td></tr>
+                ) : (
+                    subscribers.map((s) => (
+                        <tr key={s.id}>
+                            <td>{s.id}</td>
+                            <td>{s.username}</td>
+                            <td>{s.chatId}</td>
+                        </tr>
+                    ))
+                )}
+            </tbody>
         </table>
       </div>
     </>
