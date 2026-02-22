@@ -28,6 +28,8 @@ public class UserEntity {
     private boolean enabled = true;
     @Column(unique = true)
     private String telegramChatId;
+    @Column(unique = true)
+    private String telegramLinkCode;
 
 
 }
