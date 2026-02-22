@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -40,5 +42,15 @@ public class UserService {
 
     public java.util.Optional<UserEntity> findByEmail(String email) {
         return userRepository.findByEmail(email);
+    }
+    public UserEntity linkTelegram(String username, String chatId) {
+        UserEntity user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        user.setTelegramChatId(chatId);
+        return userRepository.save(user);
+    }
+
+    public Optional<UserEntity> findByTelegramChatId(String chatId) {
+        return userRepository.findByTelegramChatId(chatId);
     }
 }

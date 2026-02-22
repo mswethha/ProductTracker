@@ -10,10 +10,10 @@ import org.springframework.stereotype.Component;
 public class ProductStatusNotificationListener {
 
     @EventListener
-    public void handleProductStatusChange(ProductEntity product) {
+    public void handleProductStatusChange(ProductStatusChangedEvent event) {
+        ProductEntity product = event.product();
         log.info("🔔 Product status changed!");
         log.info("Product: {}", product.getName());
         log.info("Availability: {}", product.getAvailabilityStatus());
-        log.info("URL: {}", product.getUrl());
     }
 }

@@ -15,6 +15,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -72,7 +74,24 @@ public class AuthController {
         r.setMessage("Admin created. Use this account to log in to the Admin panel.");
         return ResponseEntity.status(HttpStatus.CREATED).body(r);
     }
-
+    /** POST /api/auth/link-telegram  body: { "chatId": "123456" } */
+    @PostMapping("/link-telegram")
+    public ResponseEntity<?> linkTelegram(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody Map<String, String> body) {
+        if (userDetails == null)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        String chatId = body.get("chatId");
+        if (chatId == null || chatId.isBlank())
+            return ResponseEntity.badRequest().body(new ErrorResponse("chatId required"));
+        try {
+            userService.linkTelegram(userDetails.getUsername(), chatId);
+            return ResponseEntity.ok(Map.of("message", "Telegram linked successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ErrorResponse("Failed to link: " + e.getMessage()));
+        }
+    }
     private ResponseEntity<?> doRegister(String username, String email, String password) {
         try {
             if (username == null || username.isBlank() || username.length() < 3) {

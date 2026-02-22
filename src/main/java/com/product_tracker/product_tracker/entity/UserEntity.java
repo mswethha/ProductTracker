@@ -26,5 +26,8 @@ public class UserEntity {
     private UserRole role;
 
     private boolean enabled = true;
+    @Column(unique = true)
+    private String telegramChatId;
+
 
 }

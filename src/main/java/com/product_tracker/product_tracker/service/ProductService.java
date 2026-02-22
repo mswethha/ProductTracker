@@ -33,6 +33,7 @@ public class ProductService {
                 ));
     }
 
+
     /** True when availability status actually changes (for Telegram notifications). */
     public boolean didStatusChange(ProductEntity product, boolean available) {
         AvailabilityStatus current = product.getAvailabilityStatus();

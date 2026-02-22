@@ -58,3 +58,15 @@ export function setAuth(username, password) {
 export function clearAuth() {
   sessionStorage.removeItem('auth');
 }
+export async function linkTelegram(chatId) {
+  const res = await fetch(`${API_BASE}/auth/link-telegram`, {
+    method: 'POST',
+    headers: { ...getAuthHeader(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chatId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || res.statusText);
+  }
+  return res.json();
+}

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getProductStatus } from '../api';
-
+import { getProductStatus, linkTelegram } from '../api';  // add linkTelegram
 export default function Home() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,6 +16,7 @@ export default function Home() {
   if (error) return <div className="card"><p className="error-msg">{error}</p></div>;
 
   return (
+  <div>
     <div className="card">
       <h2>Product status</h2>
       <p style={{ color: '#a1a1aa', marginBottom: '1rem' }}>
@@ -43,6 +43,56 @@ export default function Home() {
           ))
         )}
       </ul>
+    </div>
+          {user && <LinkTelegramForm />}
+  </div>
+  );
+}
+function LinkTelegramForm() {
+  const [chatId, setChatId] = useState('');
+  const [msg, setMsg] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLink = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await linkTelegram(chatId);
+      setMsg('✅ Telegram linked! You will now receive alerts.');
+    } catch (err) {
+      setMsg('❌ ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="card">
+      <h2>Link Telegram</h2>
+      <p style={{ color: '#a1a1aa', marginBottom: '1rem' }}>
+        1. Open Telegram and message <strong>@YourBotUsername</strong>, send <code>/start</code><br/>
+        2. The bot will reply with your Chat ID — paste it below.
+      </p>
+      <form onSubmit={handleLink}>
+        <div className="form-group">
+          <label>Your Telegram Chat ID</label>
+          <input
+            type="text"
+            value={chatId}
+            onChange={e => setChatId(e.target.value)}
+            placeholder="e.g. 123456789"
+            required
+          />
+        </div>
+        {msg && (
+          <p className={msg.startsWith('✅') ? 'success-msg' : 'error-msg'}>
+            {msg}
+          </p>
+        )}
+        <button type="submit" className="btn btn-primary" disabled={loading}>
+          {loading ? 'Linking…' : 'Link Telegram'}
+        </button>
+      </form>
     </div>
   );
 }
